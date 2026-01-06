@@ -4,6 +4,7 @@
 //! The primary implementation uses `gh` CLI, with a future fallback to native HTTP API.
 
 pub mod gh_cli;
+pub mod api_client;
 
 use anyhow::Result;
 use async_trait::async_trait;

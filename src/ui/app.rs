@@ -4,7 +4,7 @@ use std::sync::mpsc::Receiver; // Backend -> UI
 
 use crate::context::AppContext;
 use crate::modules::auth::DeviceCodeResponse;
-use crate::app_event::{AppAction, AppEvent};
+use crate::app_event::{AppAction, AppEvent, FileNode};
 use crate::i18n::{I18n, Lang};
 use super::sidebar::Sidebar;
 use super::log_viewer::LogViewer;
@@ -18,6 +18,12 @@ pub enum AppState {
         response: DeviceCodeResponse,
     },
     Main,
+    Browsing {
+        repo_name: String,      // full_name (owner/repo)
+        current_path: String,   // Current directory path
+        files: Vec<FileNode>,   // Files/dirs in current directory
+        viewing_code: Option<(String, String)>, // (filename, content)
+    },
 }
 
 pub struct NativeHubApp {
@@ -41,6 +47,9 @@ pub struct NativeHubApp {
     event_rx: Receiver<AppEvent>,
     
     auth_error: Option<String>,
+    
+    // File browsing state
+    selected_repo: Option<String>, // full_name of the repo being browsed
 }
 
 impl NativeHubApp {
@@ -50,7 +59,9 @@ impl NativeHubApp {
         event_rx: Receiver<AppEvent>,
         ctx: AppContext
     ) -> Self {
-        super::configure_style(&cc.egui_ctx);
+        // Apply Cyberpunk theme
+        super::style::configure_fonts(&cc.egui_ctx);
+        super::style::configure_theme(&cc.egui_ctx);
         
         Self {
             ctx,
@@ -64,6 +75,7 @@ impl NativeHubApp {
             action_tx,
             event_rx,
             auth_error: None,
+            selected_repo: None,
         }
     }
 
@@ -99,6 +111,25 @@ impl NativeHubApp {
                 AppEvent::RepoList(repos) => {
                     self.log_viewer.add_log(format!("SYSTEM: Received {} repositories.", repos.len()));
                     self.repo_browser.set_repos(repos);
+                }
+                AppEvent::FileTree(path, files) => {
+                    // Transition to Browsing state
+                    if let Some(ref repo_name) = self.selected_repo {
+                        self.log_viewer.add_log(format!("收到 {} 个文件/目录", files.len()));
+                        self.state = AppState::Browsing {
+                            repo_name: repo_name.clone(),
+                            current_path: path,
+                            files,
+                            viewing_code: None,
+                        };
+                    }
+                }
+                AppEvent::FileContent(filename, content) => {
+                    // Update viewing_code in Browsing state
+                    if let AppState::Browsing { ref mut viewing_code, .. } = self.state {
+                        self.log_viewer.add_log(format!("已加载文件: {}", filename));
+                        *viewing_code = Some((filename, content));
+                    }
                 }
             }
         }
@@ -157,6 +188,13 @@ impl eframe::App for NativeHubApp {
             }
             AppState::Main => {
                 self.render_main(ctx);
+            }
+            AppState::Browsing { repo_name, current_path, files, viewing_code } => {
+                let repo_name = repo_name.clone();
+                let current_path = current_path.clone();
+                let files = files.clone();
+                let viewing_code = viewing_code.clone();
+                self.render_browsing(ctx, &repo_name, &current_path, &files, &viewing_code);
             }
         }
         
@@ -248,10 +286,63 @@ impl NativeHubApp {
             .show(ctx, |ui| {
                  ui.vertical_centered(|ui| {
                     ui.add_space(20.0);
-                    // ui.heading(egui::RichText::new("COMMAND DECK ONLINE").color(egui::Color32::LIGHT_BLUE)); // Removed header
                     
-                    self.repo_browser.show(ui, &self.i18n);
+                    // Track if a repo was clicked
+                    if let Some(repo_full_name) = self.repo_browser.show(ui, &self.i18n) {
+                        self.selected_repo = Some(repo_full_name);
+                    }
                 });
+            });
+    }
+    
+    fn render_browsing(
+        &mut self,
+        ctx: &egui::Context,
+        repo_name: &str,
+        current_path: &str,
+        files: &[FileNode],
+        viewing_code: &Option<(String, String)>,
+    ) {
+        use super::file_browser::{render_file_browser, BrowserAction};
+        
+        egui::TopBottomPanel::bottom("terminal_panel_browse")
+            .min_height(100.0)
+            .resizable(true)
+            .show(ctx, |ui| {
+                self.log_viewer.show(ui, &self.i18n);
+            });
+        
+        egui::CentralPanel::default()
+            .show(ctx, |ui| {
+                if let Some(action) = render_file_browser(
+                    ui,
+                    &self.i18n,
+                    repo_name,
+                    current_path,
+                    files,
+                    viewing_code,
+                    &self.action_tx,
+                ) {
+                    match action {
+                        BrowserAction::BackToRepoList => {
+                            self.state = AppState::Main;
+                            self.selected_repo = None;
+                        }
+                        BrowserAction::NavigateTo(path) => {
+                            if let Some(ref repo) = self.selected_repo {
+                                let _ = self.action_tx.try_send(AppAction::FetchDir(repo.clone(), path));
+                            }
+                        }
+                        BrowserAction::OpenFile(_filename, url) => {
+                            let _ = self.action_tx.try_send(AppAction::ReadFile(url));
+                        }
+                        BrowserAction::CloseViewer => {
+                            if let AppState::Browsing { ref mut viewing_code, .. } = self.state {
+                                *viewing_code = None;
+                            }
+                        }
+                    }
+                }
             });
     }
 }

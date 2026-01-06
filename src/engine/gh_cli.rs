@@ -20,6 +20,8 @@ impl GhCliEngine {
 #[derive(Debug, Deserialize)]
 struct GhRepoJson {
     name: String,
+    #[serde(rename = "nameWithOwner")]
+    name_with_owner: String,
     #[serde(default)]
     description: Option<String>,
     #[serde(rename = "isPrivate")]
@@ -34,7 +36,7 @@ impl Ops for GhCliEngine {
         let output = Command::new("gh")
             .args([
                 "repo", "list",
-                "--json", "name,description,isPrivate,updatedAt",
+                "--json", "name,nameWithOwner,description,isPrivate,updatedAt",
                 "--limit", "50"
             ])
             .output()
@@ -54,6 +56,7 @@ impl Ops for GhCliEngine {
         let repos = raw_repos.into_iter().map(|r| {
             RepoData {
                 name: r.name,
+                full_name: r.name_with_owner,
                 description: r.description.unwrap_or_default(),
                 is_private: r.is_private,
                 last_updated: format_relative_time(&r.updated_at),

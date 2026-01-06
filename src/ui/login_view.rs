@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2};
 use crate::i18n::{I18n, Lang};
+use super::components::CyberButton;
 
 pub enum LoginAction {
     Initiate,
@@ -61,9 +62,9 @@ pub fn render_login(ui: &mut Ui, error: &Option<String>, i18n: &mut I18n) -> Log
             ui.add_space(20.0);
         }
 
-        // 2. The Login Button (Custom Painted)
-        let btn_text = format!("{} {}", i18n.t("login.button_icon"), i18n.t("login.button"));
-        if draw_tech_button(ui, &btn_text).clicked() {
+        // 2. The Login Button (CyberButton with corner brackets)
+        let btn_text = format!(">> {} <<", i18n.t("login.button"));
+        if CyberButton::new(btn_text).min_size(Vec2::new(300.0, 60.0)).show(ui).clicked() {
             action = LoginAction::Initiate;
         }
     });

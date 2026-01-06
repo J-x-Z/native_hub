@@ -27,13 +27,17 @@ impl RepoBrowser {
         self.loading = false;
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
-        // Defines the main layout
+    /// Returns Some(full_name) if a repo was clicked
+    pub fn show(&mut self, ui: &mut egui::Ui, i18n: &I18n) -> Option<String> {
+        let mut selected = None;
+        
         ui.vertical(|ui| {
             self.render_header(ui, i18n);
             ui.add_space(10.0);
-            self.render_list(ui, i18n);
+            selected = self.render_list(ui, i18n);
         });
+        
+        selected
     }
 
     fn render_header(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
@@ -60,32 +64,38 @@ impl RepoBrowser {
         ui.separator();
     }
 
-    fn render_list(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
+    fn render_list(&mut self, ui: &mut egui::Ui, i18n: &I18n) -> Option<String> {
         if self.loading && self.repos.is_empty() {
             ui.centered_and_justified(|ui| {
                 ui.label(i18n.t("repos.loading"));
             });
-            return;
+            return None;
         }
 
         if self.repos.is_empty() {
              ui.centered_and_justified(|ui| {
                 ui.label(i18n.t("repos.empty"));
             });
-            return;
+            return None;
         }
+        
+        let mut clicked_repo = None;
         
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.set_width(ui.available_width());
             
             for repo in &self.repos {
-                self.render_repo_card(ui, repo);
+                if let Some(full_name) = self.render_repo_card(ui, repo) {
+                    clicked_repo = Some(full_name);
+                }
                 ui.add_space(8.0);
             }
         });
+        
+        clicked_repo
     }
 
-    fn render_repo_card(&self, ui: &mut egui::Ui, repo: &RepoData) {
+    fn render_repo_card(&self, ui: &mut egui::Ui, repo: &RepoData) -> Option<String> {
         let h = 80.0;
         let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), h), Sense::click());
         
@@ -122,9 +132,12 @@ impl RepoBrowser {
             });
         });
         
-        // Handle click - open repo in browser
+        // Handle click - return the full_name for file browsing
         if response.clicked() {
-            let _ = self.action_tx.try_send(AppAction::SelectRepo(repo.name.clone()));
+            let _ = self.action_tx.try_send(AppAction::SelectRepo(repo.full_name.clone()));
+            return Some(repo.full_name.clone());
         }
+        
+        None
     }
 }

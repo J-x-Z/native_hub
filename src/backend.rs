@@ -3,6 +3,7 @@ use std::sync::mpsc::Sender;
 use crate::app_event::{AppAction, AppEvent};
 use crate::context::AppContext;
 use crate::modules::auth;
+use crate::engine::api_client::ApiClient;
 
 /// The main backend loop running on the tokio runtime
 pub async fn run_backend(
@@ -41,22 +42,92 @@ pub async fn run_backend(
                     }
                 });
             }
-            AppAction::SelectRepo(repo_name) => {
+            AppAction::SelectRepo(full_name) => {
+                // Fetch root file tree for the repo
                 let tx = event_tx.clone();
+                let ctx_clone = ctx.clone();
                 tokio::spawn(async move {
-                    let _ = tx.send(AppEvent::Log(format!("OPENING REPO: {}...", repo_name)));
+                    let _ = tx.send(AppEvent::Log(format!("正在浏览仓库: {}...", full_name)));
                     
-                    // Use gh browse to open repo in browser
-                    let result = tokio::process::Command::new("gh")
-                        .args(["browse", "--repo", &repo_name])
-                        .spawn();
+                    // Get token from keyring
+                    let token = match keyring::Entry::new("native_hub", "github_oauth")
+                        .and_then(|e| e.get_password())
+                    {
+                        Ok(t) => t,
+                        Err(e) => {
+                            let _ = tx.send(AppEvent::Error(format!("无法获取 Token: {}", e)));
+                            return;
+                        }
+                    };
                     
-                    match result {
-                        Ok(_) => {
-                            let _ = tx.send(AppEvent::Log("BROWSER LAUNCHED.".to_string()));
+                    let api = ApiClient::new(token);
+                    let parts: Vec<&str> = full_name.split('/').collect();
+                    if parts.len() != 2 {
+                        let _ = tx.send(AppEvent::Error("仓库名格式错误".to_string()));
+                        return;
+                    }
+                    
+                    match api.fetch_file_tree(parts[0], parts[1], "").await {
+                        Ok(files) => {
+                            let _ = tx.send(AppEvent::Log(format!("找到 {} 个文件/目录", files.len())));
+                            let _ = tx.send(AppEvent::FileTree("".to_string(), files));
                         }
                         Err(e) => {
-                            let _ = tx.send(AppEvent::Error(format!("FAILED TO OPEN: {}", e)));
+                            let _ = tx.send(AppEvent::Error(format!("获取文件列表失败: {}", e)));
+                        }
+                    }
+                });
+            }
+            AppAction::FetchDir(full_name, path) => {
+                let tx = event_tx.clone();
+                tokio::spawn(async move {
+                    let _ = tx.send(AppEvent::Log(format!("正在加载目录: /{}", path)));
+                    
+                    let token = match keyring::Entry::new("native_hub", "github_oauth")
+                        .and_then(|e| e.get_password())
+                    {
+                        Ok(t) => t,
+                        Err(_) => return,
+                    };
+                    
+                    let api = ApiClient::new(token);
+                    let parts: Vec<&str> = full_name.split('/').collect();
+                    if parts.len() != 2 { return; }
+                    
+                    match api.fetch_file_tree(parts[0], parts[1], &path).await {
+                        Ok(files) => {
+                            let _ = tx.send(AppEvent::FileTree(path, files));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(AppEvent::Error(format!("加载目录失败: {}", e)));
+                        }
+                    }
+                });
+            }
+            AppAction::ReadFile(download_url) => {
+                let tx = event_tx.clone();
+                tokio::spawn(async move {
+                    let _ = tx.send(AppEvent::Log("正在读取文件内容...".to_string()));
+                    
+                    let token = match keyring::Entry::new("native_hub", "github_oauth")
+                        .and_then(|e| e.get_password())
+                    {
+                        Ok(t) => t,
+                        Err(_) => return,
+                    };
+                    
+                    let api = ApiClient::new(token);
+                    
+                    // Extract filename from URL
+                    let filename = download_url.split('/').last().unwrap_or("file").to_string();
+                    
+                    match api.fetch_file_content(&download_url).await {
+                        Ok(content) => {
+                            let _ = tx.send(AppEvent::Log(format!("文件 {} 已加载", filename)));
+                            let _ = tx.send(AppEvent::FileContent(filename, content));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(AppEvent::Error(format!("读取文件失败: {}", e)));
                         }
                     }
                 });

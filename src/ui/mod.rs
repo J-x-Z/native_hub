@@ -7,6 +7,9 @@ pub mod retro_modal;
 pub mod repo_browser;
 pub mod app;
 pub mod effects;
+pub mod style;
+pub mod components;
+pub mod file_browser;
 
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily};
 pub use app::NativeHubApp;
