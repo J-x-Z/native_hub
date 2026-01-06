@@ -5,7 +5,7 @@
 //! - Primary Accent: #00F0FF (Neon Cyan)
 //! - Secondary: #FF003C (Neon Red)
 
-use eframe::egui::{self, Color32, Rounding, Stroke, Visuals};
+use eframe::egui::{self, Color32, Stroke};
 
 /// Core theme colors
 pub mod colors {

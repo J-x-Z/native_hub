@@ -100,21 +100,41 @@ impl RepoBrowser {
         let (rect, response) = ui.allocate_exact_size(Vec2::new(ui.available_width(), h), Sense::click());
         
         let painter = ui.painter();
+        let is_hovered = response.hovered();
         
-        // Hover Effect
-        let border_color = if response.hovered() {
+        // Hover Effect - Cyan glow background
+        let bg_color = if is_hovered {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-             Color32::from_rgb(0, 255, 255) // Cyan
+            Color32::from_rgba_unmultiplied(0, 40, 50, 180) // Faint cyan glow
         } else {
-             Color32::from_rgb(0, 100, 100) // Dim Cyan
+            Color32::from_rgb(5, 8, 12) // Dark background
+        };
+        
+        let border_color = if is_hovered {
+            Color32::from_rgb(0, 255, 255) // Bright Cyan
+        } else {
+            Color32::from_rgb(0, 80, 80) // Dim Cyan
         };
         
         // Background
-        painter.rect_filled(rect, 4.0, Color32::from_rgb(5, 8, 12));
+        painter.rect_filled(rect, 4.0, bg_color);
         painter.rect_stroke(rect, 4.0, Stroke::new(1.0, border_color), eframe::egui::StrokeKind::Middle);
         
+        // Status Strip (2px vertical line on left)
+        let strip_color = if repo.is_private {
+            Color32::from_rgb(255, 140, 0) // Orange for private
+        } else {
+            Color32::from_rgb(0, 240, 255) // Cyan for public
+        };
+        let strip_brightness = if is_hovered { 1.0 } else { 0.6 };
+        let strip_rect = egui::Rect::from_min_size(
+            rect.min,
+            Vec2::new(3.0, rect.height())
+        );
+        painter.rect_filled(strip_rect, 0.0, strip_color.gamma_multiply(strip_brightness));
+        
         // Content
-        let content_rect = rect.shrink(10.0);
+        let content_rect = rect.shrink2(Vec2::new(12.0, 10.0));
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
             ui.horizontal(|ui| {
                 // Icon
@@ -122,12 +142,27 @@ impl RepoBrowser {
                 ui.label(RichText::new(icon).size(24.0));
                 
                 ui.vertical(|ui| {
+                    // Repo name
                     ui.label(RichText::new(&repo.name).size(16.0).color(Color32::WHITE).strong());
-                    ui.label(RichText::new(&repo.description).size(12.0).color(Color32::GRAY));
+                    
+                    // Description (truncated)
+                    let desc = if repo.description.len() > 60 {
+                        format!("{}...", &repo.description[..60])
+                    } else {
+                        repo.description.clone()
+                    };
+                    ui.label(RichText::new(desc).size(11.0).color(Color32::GRAY));
                 });
                 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(&repo.last_updated).size(10.0).color(Color32::from_rgb(0, 240, 255)).italics());
+                    // Updated time
+                    ui.label(RichText::new(&repo.last_updated).size(10.0).color(Color32::from_rgb(0, 180, 200)).italics());
+                    
+                    ui.add_space(10.0);
+                    
+                    // Stars & Forks (if we have the data - use placeholder for now)
+                    ui.label(RichText::new("⭐ --").size(10.0).color(Color32::from_rgb(255, 215, 0)));
+                    ui.label(RichText::new("🍴 --").size(10.0).color(Color32::GRAY));
                 });
             });
         });

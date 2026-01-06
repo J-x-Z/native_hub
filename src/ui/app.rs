@@ -5,7 +5,7 @@ use std::sync::mpsc::Receiver; // Backend -> UI
 use crate::context::AppContext;
 use crate::modules::auth::DeviceCodeResponse;
 use crate::app_event::{AppAction, AppEvent, FileNode};
-use crate::i18n::{I18n, Lang};
+use crate::i18n::I18n;
 use super::sidebar::Sidebar;
 use super::log_viewer::LogViewer;
 use super::repo_browser::RepoBrowser;
@@ -23,6 +23,8 @@ pub enum AppState {
         current_path: String,   // Current directory path
         files: Vec<FileNode>,   // Files/dirs in current directory
         viewing_code: Option<(String, String)>, // (filename, content)
+        repo_info: Option<crate::app_event::RepoInfo>, // Stars, forks, etc.
+        readme_content: Option<String>, // Auto-loaded README
     },
 }
 
@@ -37,6 +39,9 @@ pub struct NativeHubApp {
     sidebar: Sidebar,
     log_viewer: LogViewer,
     repo_browser: RepoBrowser,
+    search_panel: super::search::SearchPanel,
+    issues_panel: super::issues::IssuesPanel,
+    pr_panel: super::pull_requests::PullRequestsPanel,
     
     // FX
     particles: ParticleSystem,
@@ -70,6 +75,9 @@ impl NativeHubApp {
             sidebar: Sidebar::new(),
             log_viewer: LogViewer::new(),
             repo_browser: RepoBrowser::new(action_tx.clone()),
+            search_panel: super::search::SearchPanel::new(action_tx.clone()),
+            issues_panel: super::issues::IssuesPanel::new(action_tx.clone()),
+            pr_panel: super::pull_requests::PullRequestsPanel::new(action_tx.clone()),
             particles: ParticleSystem::new(100), // Max 100 particles
             click_ripples: Vec::new(),
             action_tx,
@@ -121,6 +129,8 @@ impl NativeHubApp {
                             current_path: path,
                             files,
                             viewing_code: None,
+                            repo_info: None,
+                            readme_content: None,
                         };
                     }
                 }
@@ -130,6 +140,42 @@ impl NativeHubApp {
                         self.log_viewer.add_log(format!("已加载文件: {}", filename));
                         *viewing_code = Some((filename, content));
                     }
+                }
+                AppEvent::RepoInfoLoaded(info) => {
+                    // Update repo_info in Browsing state
+                    if let AppState::Browsing { ref mut repo_info, .. } = self.state {
+                        *repo_info = Some(info);
+                    }
+                }
+                AppEvent::ReadmeLoaded(readme) => {
+                    // Update readme_content in Browsing state
+                    if let AppState::Browsing { ref mut readme_content, .. } = self.state {
+                        *readme_content = Some(readme);
+                    }
+                }
+                AppEvent::SearchResults(results) => {
+                    self.search_panel.set_results(results);
+                }
+                AppEvent::IssueList(issues) => {
+                    self.issues_panel.set_issues(issues);
+                }
+                AppEvent::IssueComments(issue_number, comments) => {
+                    self.issues_panel.set_comments(issue_number, comments);
+                }
+                AppEvent::CommentCreated(comment) => {
+                    self.issues_panel.add_comment(comment);
+                }
+                AppEvent::IssueUpdated(issue) => {
+                    self.issues_panel.update_issue(issue);
+                }
+                AppEvent::PullRequestList(prs) => {
+                    self.pr_panel.set_pull_requests(prs);
+                }
+                AppEvent::PullRequestMerged(result) => {
+                    self.pr_panel.on_pr_merged(result);
+                }
+                AppEvent::PullRequestClosed(pr) => {
+                    self.pr_panel.on_pr_closed(pr);
                 }
             }
         }
@@ -189,12 +235,14 @@ impl eframe::App for NativeHubApp {
             AppState::Main => {
                 self.render_main(ctx);
             }
-            AppState::Browsing { repo_name, current_path, files, viewing_code } => {
+            AppState::Browsing { repo_name, current_path, files, viewing_code, repo_info, readme_content } => {
                 let repo_name = repo_name.clone();
                 let current_path = current_path.clone();
                 let files = files.clone();
                 let viewing_code = viewing_code.clone();
-                self.render_browsing(ctx, &repo_name, &current_path, &files, &viewing_code);
+                let repo_info = repo_info.clone();
+                let readme_content = readme_content.clone();
+                self.render_browsing(ctx, &repo_name, &current_path, &files, &viewing_code, &repo_info, &readme_content);
             }
         }
         
@@ -278,19 +326,34 @@ impl NativeHubApp {
             .resizable(true)
             .show(ctx, |ui| {
                  self.log_viewer.show(ui, &self.i18n);
+                 
+                 ui.separator();
+                 
+                 // HUD Status Bar at the very bottom
+                 super::components::SystemStatusBar::show(ui);
             });
 
         // The Central Panel must be added last
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE) // Transparent to show grid
             .show(ctx, |ui| {
-                 ui.vertical_centered(|ui| {
-                    ui.add_space(20.0);
+                ui.add_space(10.0);
+                
+                // Two-column layout: My Repos | Search
+                ui.columns(2, |columns| {
+                    // Left column: My Repositories
+                    columns[0].vertical(|ui| {
+                        if let Some(repo_full_name) = self.repo_browser.show(ui, &self.i18n) {
+                            self.selected_repo = Some(repo_full_name);
+                        }
+                    });
                     
-                    // Track if a repo was clicked
-                    if let Some(repo_full_name) = self.repo_browser.show(ui, &self.i18n) {
-                        self.selected_repo = Some(repo_full_name);
-                    }
+                    // Right column: Search
+                    columns[1].vertical(|ui| {
+                        if let Some(repo_full_name) = self.search_panel.show(ui, &self.i18n) {
+                            self.selected_repo = Some(repo_full_name);
+                        }
+                    });
                 });
             });
     }
@@ -302,14 +365,59 @@ impl NativeHubApp {
         current_path: &str,
         files: &[FileNode],
         viewing_code: &Option<(String, String)>,
+        repo_info: &Option<crate::app_event::RepoInfo>,
+        readme_content: &Option<String>,
     ) {
         use super::file_browser::{render_file_browser, BrowserAction};
+        
+        // Set current repo for issues and PR panels (triggers load if changed)
+        self.issues_panel.set_repo(repo_name.to_string());
+        self.pr_panel.set_repo(repo_name.to_string());
         
         egui::TopBottomPanel::bottom("terminal_panel_browse")
             .min_height(100.0)
             .resizable(true)
             .show(ctx, |ui| {
                 self.log_viewer.show(ui, &self.i18n);
+            });
+        
+        // Right panel: Issues & PRs with tabs
+        let active_tab = self.sidebar.active_tab;
+        egui::SidePanel::right("issues_pr_panel")
+            .min_width(320.0)
+            .max_width(450.0)
+            .resizable(true)
+            .show(ctx, |ui| {
+                // Tab buttons at the top
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(active_tab == 0, 
+                        egui::RichText::new("📋 Issues").color(if active_tab == 0 { 
+                            super::style::colors::ACCENT 
+                        } else { 
+                            egui::Color32::GRAY 
+                        })
+                    ).clicked() {
+                        self.sidebar.active_tab = 0;
+                    }
+                    if ui.selectable_label(active_tab == 1, 
+                        egui::RichText::new("🔀 PRs").color(if active_tab == 1 { 
+                            super::style::colors::ACCENT 
+                        } else { 
+                            egui::Color32::GRAY 
+                        })
+                    ).clicked() {
+                        self.sidebar.active_tab = 1;
+                    }
+                });
+                
+                ui.separator();
+                
+                // Show the active panel
+                match active_tab {
+                    0 => self.issues_panel.show(ui, &self.i18n),
+                    1 => self.pr_panel.show(ui, &self.i18n),
+                    _ => {}
+                }
             });
         
         egui::CentralPanel::default()
@@ -321,6 +429,8 @@ impl NativeHubApp {
                     current_path,
                     files,
                     viewing_code,
+                    repo_info,
+                    readme_content,
                     &self.action_tx,
                 ) {
                     match action {

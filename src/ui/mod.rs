@@ -10,6 +10,9 @@ pub mod effects;
 pub mod style;
 pub mod components;
 pub mod file_browser;
+pub mod search;
+pub mod issues;
+pub mod pull_requests;
 
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily};
 pub use app::NativeHubApp;
