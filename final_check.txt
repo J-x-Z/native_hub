@@ -1,0 +1,82 @@
+    Checking native_hub v0.1.0 (C:\Users\Z1529\.gemini\antigravity\scratch\ghclint)
+warning: struct `CommandDeck` is never constructed
+ --> src\ui\command_deck.rs:3:12
+  |
+3 | pub struct CommandDeck;
+  |            ^^^^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: associated items `new`, `show`, and `action_btn` are never used
+  --> src\ui\command_deck.rs:6:12
+   |
+5  | impl CommandDeck {
+   | ---------------- associated items in this implementation
+6  |     pub fn new() -> Self {
+   |            ^^^
+...
+10 |     pub fn show(&self, ui: &mut Ui) {
+   |            ^^^^
+...
+47 |     fn action_btn(&self, ui: &mut Ui, text: &str, enabled: bool) -> egui::Response {
+   |        ^^^^^^^^^^
+
+warning: field `ctx` is never read
+  --> src\ui\app.rs:23:5
+   |
+22 | pub struct NativeHubApp {
+   |            ------------ field in this struct
+23 |     ctx: AppContext,
+   |     ^^^
+
+warning: function `typewriter_label` is never used
+  --> src\ui\effects.rs:90:8
+   |
+90 | pub fn typewriter_label(ui: &mut egui::Ui, text: &str, animation_progress: f32) {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: field `expires_in` is never read
+  --> src\modules\auth.rs:14:9
+   |
+10 | pub struct DeviceCodeResponse {
+   |            ------------------ field in this struct
+...
+14 |     pub expires_in: u64,
+   |         ^^^^^^^^^^
+   |
+   = note: `DeviceCodeResponse` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `token_type` and `scope` are never read
+  --> src\modules\auth.rs:21:9
+   |
+19 | pub struct AccessTokenResponse {
+   |            ------------------- fields in this struct
+20 |     pub access_token: String,
+21 |     pub token_type: String,
+   |         ^^^^^^^^^^
+22 |     pub scope: String,
+   |         ^^^^^
+   |
+   = note: `AccessTokenResponse` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `error_description` is never read
+  --> src\modules\auth.rs:29:28
+   |
+29 |     Error { error: String, error_description: Option<String> },
+   |     -----                  ^^^^^^^^^^^^^^^^^
+   |     |
+   |     field in this variant
+   |
+   = note: `PollResponse` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `load_token_from_keyring` is never used
+  --> src\context.rs:27:18
+   |
+15 | impl AppContext {
+   | --------------- method in this implementation
+...
+27 |     pub async fn load_token_from_keyring(&self) {
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `native_hub` (bin "native_hub") generated 8 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.84s

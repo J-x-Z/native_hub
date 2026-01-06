@@ -1,0 +1,58 @@
+Updated Project Initialization Plan
+1. Infrastructure & Architecture (Crucial)
+
+[ ] Initialize Cargo.toml (Add tokio with full features, crossbeam-channel for UI communication).
+
+[ ] Setup Async Bridge: Create AppAction and AppEvent enums to decouple UI from Logic.
+
+[ ] Spawn Backend Thread: Initialize tokio runtime in main.rs separate from the UI loop.
+
+2. UI Core & Aesthetics
+
+[ ] Font Loader: Load JetBrains Mono (Code) and a Chinese font fallback.
+
+[ ] Icon Support: Integrate egui-phosphor or load a Nerd Font for GitHub icons (Star, Fork, Branch).
+
+[ ] Create ui/app.rs with State Management (holding the Receiver from backend).
+
+[ ] Implement basic layout: Sidebar, MainArea, Terminal.
+
+3. Visual Effects ( The "Geek" Polish)
+
+[ ] Retro Grid: Implement background grid painter in ui/effects.rs.
+
+[ ] Terminal Animation: Implement a non-blocking typing effect (update text state based on time delta).
+
+[ ] System Status: Add the fake top/bottom status bar.
+
+4. Authentication
+
+[ ] Implement auth.rs logic (triggered via the Async Bridge).
+
+Core Philosophy Change: The user wants to completely abandon the traditional CLI input paradigm on ALL platforms. The UI must be 100% unified between Desktop and Mobile. No typing commands, only clicking/tapping.
+
+Specific Changes:
+
+Redefine Terminal Component:
+
+Rename it to LogViewer.
+
+It must be Read-Only. No text input field.
+
+It displays system status logs with a typewriter effect (e.g., > CONNECTING...).
+
+Introduce CommandDeck Component:
+
+A new UI area (above the LogViewer) containing a grid of 'Action Chips' or Buttons.
+
+Examples of buttons: [REFRESH], [NEW ISSUE], [SYNC], [BROWSE CODE].
+
+Interaction: Clicking a button triggers the async action directly.
+
+Unified Input Handling:
+
+For necessary text inputs (like Issue titles or comments), implement a RetroModal (a popup dialog) that renders in the center of the screen.
+
+This ensures the input experience is identical on Mouse (PC) and Touch (Android).
+
+Goal: The app should feel like a Sci-Fi Spaceship Dashboard, not a terminal emulator."
