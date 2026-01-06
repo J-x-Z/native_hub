@@ -239,7 +239,7 @@ impl NativeHubApp {
             .min_height(150.0)
             .resizable(true)
             .show(ctx, |ui| {
-                 self.log_viewer.show(ui);
+                 self.log_viewer.show(ui, &self.i18n);
             });
 
         // The Central Panel must be added last

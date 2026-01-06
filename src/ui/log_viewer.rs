@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, RichText, ScrollArea};
 use std::collections::VecDeque;
+use crate::i18n::I18n;
 
 pub struct LogViewer {
     logs: VecDeque<String>,
@@ -8,13 +9,16 @@ pub struct LogViewer {
 
 impl LogViewer {
     pub fn new() -> Self {
-        let mut logs = VecDeque::new();
-        logs.push_back("> SYSTEM INITIALIZED".to_string());
-        logs.push_back("> AWAITING INPUT...".to_string());
-        
         Self {
-            logs,
+            logs: VecDeque::new(),
             max_logs: 100,
+        }
+    }
+    
+    pub fn init_logs(&mut self, i18n: &I18n) {
+        if self.logs.is_empty() {
+            self.logs.push_back(format!("> {}", i18n.t("log.system_online")));
+            self.logs.push_back(format!("> {}", i18n.t("log.awaiting")));
         }
     }
 
@@ -22,14 +26,15 @@ impl LogViewer {
         if self.logs.len() >= self.max_logs {
             self.logs.pop_front();
         }
-        // Timestamp could be added here
         self.logs.push_back(format!("> {}", msg));
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui) {
+    pub fn show(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
+        self.init_logs(i18n);
+        
         ui.vertical(|ui| {
             ui.label(
-                RichText::new("TERMINAL OUT //")
+                RichText::new(format!("{} //", i18n.t("log.title")))
                     .size(10.0)
                     .color(Color32::from_gray(100))
             );
@@ -40,8 +45,6 @@ impl LogViewer {
                     ui.style_mut().spacing.item_spacing = egui::vec2(0.0, 4.0);
                     
                     for log in &self.logs {
-                        // TODO: Typewriter effect per line involves tracking state per line. 
-                        // For now, static text but with the "Terminal" font style we configured.
                         ui.label(
                             RichText::new(log)
                                 .color(Color32::from_rgb(0, 255, 136))
