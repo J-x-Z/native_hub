@@ -1,21 +1,37 @@
 use eframe::egui::{self, Color32, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui, Vec2};
+use crate::i18n::{I18n, Lang};
 
 pub enum LoginAction {
     Initiate,
     None,
 }
 
-pub fn render_login(ui: &mut Ui, error: &Option<String>) -> LoginAction {
+pub fn render_login(ui: &mut Ui, error: &Option<String>, i18n: &mut I18n) -> LoginAction {
     let mut action = LoginAction::None;
+
+    // Language selector at top-right
+    egui::TopBottomPanel::top("lang_selector").show_inside(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new("🌐").size(16.0));
+                egui::ComboBox::from_id_salt("lang_combo")
+                    .selected_text(i18n.lang.name())
+                    .show_ui(ui, |ui| {
+                        for lang in Lang::all() {
+                            ui.selectable_value(&mut i18n.lang, *lang, lang.name());
+                        }
+                    });
+            });
+        });
+    });
 
     // Use a central layout with fixed width for better control
     ui.vertical_centered(|ui| {
         // Center vertically in the available space (approximate)
         let available_height = ui.available_height();
-        ui.add_space(available_height * 0.3); // Push down by 30%
+        ui.add_space(available_height * 0.25); // Push down by 25%
 
         // 1. The Tech Border Container for Title
-        // We reserve space first
         let title_height = 80.0;
         let title_width = 400.0;
         let (rect, _response) = ui.allocate_exact_size(
@@ -24,30 +40,30 @@ pub fn render_login(ui: &mut Ui, error: &Option<String>) -> LoginAction {
         );
         
         // Custom Painter for Level 2 Style
-        // Neon Cyan Border
         draw_tech_border(ui, rect, Color32::from_rgb(0, 240, 255));
         
         // Draw Text centered in rect
         ui.allocate_new_ui(eframe::egui::UiBuilder::new().max_rect(rect), |ui| {
             ui.centered_and_justified(|ui| {
                  ui.label(
-                    RichText::new("NATIVEHUB")
-                        .font(egui::FontId::proportional(32.0)) // Use "Hack" via Proportional mapping
+                    RichText::new(i18n.t("app.title"))
+                        .font(egui::FontId::proportional(32.0))
                         .color(Color32::from_rgb(0, 240, 255))
                         .strong()
                 );
             });
         });
 
-        ui.add_space(60.0); // Level 1: More spacing
+        ui.add_space(60.0);
 
         if let Some(err) = error {
-            ui.colored_label(Color32::from_rgb(255, 0, 128), format!("⚠️  ERROR: {}", err)); // Magenta Error
+            ui.colored_label(Color32::from_rgb(255, 0, 128), format!("⚠️  {}: {}", i18n.t("login.error_prefix"), err));
             ui.add_space(20.0);
         }
 
         // 2. The Login Button (Custom Painted)
-        if draw_tech_button(ui, "LOGIN WITH GITHUB").clicked() {
+        let btn_text = format!("{} {}", i18n.t("login.button_icon"), i18n.t("login.button"));
+        if draw_tech_button(ui, &btn_text).clicked() {
             action = LoginAction::Initiate;
         }
     });

@@ -8,18 +8,35 @@ pub mod repo_browser;
 pub mod app;
 pub mod effects;
 
-use eframe::egui::{self, Color32};
+use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily};
 pub use app::NativeHubApp;
 
-/// Configure fonts to enforce a "Terminal" look with system font fallbacks for CJK.
-/// Note: For true CJK support, embed a font file like NotoSansCJK.
+/// Configure fonts to include CJK support for Chinese language
 pub fn configure_fonts(ctx: &egui::Context) {
-    // For now, we use the default fonts which include basic Latin/Symbol support.
-    // CJK characters may render as tofu unless a font is embedded.
-    // This is a deliberate trade-off to avoid crashes. Localization is a Phase 5 task.
-    // The default egui fonts are: Ubuntu-Light (Proportional) and Hack (Monospace).
-    // They will be used automatically.
-    let _ = ctx; // Suppress unused warning; fonts are set to default.
+    let mut fonts = FontDefinitions::default();
+    
+    // Try to load Microsoft YaHei from Windows fonts folder
+    // This is pre-installed on all Windows systems
+    let font_path = std::path::Path::new("C:/Windows/Fonts/msyh.ttc");
+    
+    if let Ok(font_data) = std::fs::read(font_path) {
+        fonts.font_data.insert(
+            "Microsoft YaHei".to_owned(),
+            FontData::from_owned(font_data).into(),
+        );
+        
+        // Add to proportional fonts (for UI text)
+        fonts.families
+            .entry(FontFamily::Proportional)
+            .or_default()
+            .push("Microsoft YaHei".to_owned());
+            
+        tracing::info!("Loaded Microsoft YaHei font for CJK support");
+    } else {
+        tracing::warn!("Could not load CJK font - Chinese may display as tofu");
+    }
+    
+    ctx.set_fonts(fonts);
 }
 
 /// Configure the application style for a geek/terminal aesthetic

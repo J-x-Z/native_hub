@@ -14,10 +14,15 @@ Thumbs.db
 .env
 *.env.local
 
-# Temporary files
+# Temporary/Debug files
 *.log
 *.tmp
+*.txt
 check_*.txt
 crash_trace.txt
 debug_*.txt
 run_*.txt
+
+# Downloaded fonts
+assets/fonts/*.zip
+assets/fonts/extracted/

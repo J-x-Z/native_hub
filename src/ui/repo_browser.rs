@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, RichText, Sense, Stroke, Vec2};
 use crate::app_event::{AppAction, RepoData};
+use crate::i18n::I18n;
 use tokio::sync::mpsc::Sender;
 
 pub struct RepoBrowser {
@@ -26,26 +27,26 @@ impl RepoBrowser {
         self.loading = false;
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui) {
+    pub fn show(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
         // Defines the main layout
         ui.vertical(|ui| {
-            self.render_header(ui);
+            self.render_header(ui, i18n);
             ui.add_space(10.0);
-            self.render_list(ui);
+            self.render_list(ui, i18n);
         });
     }
 
-    fn render_header(&mut self, ui: &mut egui::Ui) {
+    fn render_header(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("REPOSITORIES").size(20.0).color(Color32::from_rgb(0, 240, 255)).strong());
+            ui.label(RichText::new(i18n.t("repos.title")).size(20.0).color(Color32::from_rgb(0, 240, 255)).strong());
             
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 // Refresh Button
                 let refresh_btn = if self.loading {
                     ui.spinner();
-                    ui.add_enabled(false, egui::Button::new("Connecting..."))
+                    ui.add_enabled(false, egui::Button::new(i18n.t("repos.loading")))
                 } else {
-                    ui.button("♻️ REFRESH")
+                    ui.button(format!("♻️ {}", i18n.t("repos.refresh")))
                 };
                 
                 if refresh_btn.clicked() {
@@ -59,17 +60,17 @@ impl RepoBrowser {
         ui.separator();
     }
 
-    fn render_list(&mut self, ui: &mut egui::Ui) {
+    fn render_list(&mut self, ui: &mut egui::Ui, i18n: &I18n) {
         if self.loading && self.repos.is_empty() {
             ui.centered_and_justified(|ui| {
-                ui.label("Accessing GitHub Uplink...");
+                ui.label(i18n.t("repos.loading"));
             });
             return;
         }
 
         if self.repos.is_empty() {
              ui.centered_and_justified(|ui| {
-                ui.label("No Data Stream. Click Refresh.");
+                ui.label(i18n.t("repos.empty"));
             });
             return;
         }

@@ -5,6 +5,7 @@ use std::sync::mpsc::Receiver; // Backend -> UI
 use crate::context::AppContext;
 use crate::modules::auth::DeviceCodeResponse;
 use crate::app_event::{AppAction, AppEvent};
+use crate::i18n::{I18n, Lang};
 use super::sidebar::Sidebar;
 use super::log_viewer::LogViewer;
 use super::repo_browser::RepoBrowser;
@@ -22,6 +23,9 @@ pub enum AppState {
 pub struct NativeHubApp {
     ctx: AppContext,
     state: AppState,
+    
+    // Internationalization
+    pub i18n: I18n,
     
     // UI Components
     sidebar: Sidebar,
@@ -51,6 +55,7 @@ impl NativeHubApp {
         Self {
             ctx,
             state: AppState::Login,
+            i18n: I18n::default(), // Chinese by default
             sidebar: Sidebar::new(),
             log_viewer: LogViewer::new(),
             repo_browser: RepoBrowser::new(action_tx.clone()),
@@ -168,7 +173,7 @@ impl NativeHubApp {
     fn render_login(&mut self, ui: &mut egui::Ui) {
         use super::login_view::{render_login, LoginAction};
         
-        if let LoginAction::Initiate = render_login(ui, &self.auth_error) {
+        if let LoginAction::Initiate = render_login(ui, &self.auth_error, &mut self.i18n) {
             self.initiate_login();
         }
     }
@@ -245,7 +250,7 @@ impl NativeHubApp {
                     ui.add_space(20.0);
                     // ui.heading(egui::RichText::new("COMMAND DECK ONLINE").color(egui::Color32::LIGHT_BLUE)); // Removed header
                     
-                    self.repo_browser.show(ui);
+                    self.repo_browser.show(ui, &self.i18n);
                 });
             });
     }

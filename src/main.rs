@@ -4,6 +4,7 @@ mod modules;
 mod app_event;
 mod backend;
 mod engine;
+pub mod i18n;
 
 use eframe::egui;
 use ui::NativeHubApp;
