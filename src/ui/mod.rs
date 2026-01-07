@@ -13,6 +13,7 @@ pub mod file_browser;
 pub mod search;
 pub mod issues;
 pub mod pull_requests;
+pub mod image_loader;
 
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily};
 pub use app::NativeHubApp;

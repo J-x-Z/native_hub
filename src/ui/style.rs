@@ -108,21 +108,57 @@ pub fn configure_fonts(ctx: &egui::Context) {
     
     let mut fonts = FontDefinitions::default();
     
-    // Try to load Microsoft YaHei from Windows for CJK support
-    let font_path = std::path::Path::new("C:/Windows/Fonts/msyh.ttc");
-    if let Ok(font_data) = std::fs::read(font_path) {
-        fonts.font_data.insert(
-            "Microsoft YaHei".to_owned(),
-            FontData::from_owned(font_data).into(),
-        );
-        fonts.families
-            .entry(FontFamily::Proportional)
-            .or_default()
-            .push("Microsoft YaHei".to_owned());
-        fonts.families
-            .entry(FontFamily::Monospace)
-            .or_default()
-            .push("Microsoft YaHei".to_owned());
+    // Platform-specific CJK font paths
+    #[cfg(target_os = "macos")]
+    let cjk_font_paths: &[(&str, &str)] = &[
+        // PingFang SC - Modern macOS Chinese font (best quality)
+        ("PingFang SC", "/System/Library/Fonts/PingFang.ttc"),
+        // Hiragino Sans GB - Available on older macOS
+        ("Hiragino Sans GB", "/System/Library/Fonts/Hiragino Sans GB.ttc"),
+        // STHeiti - Fallback Chinese font
+        ("STHeiti", "/System/Library/Fonts/STHeiti Medium.ttc"),
+    ];
+    
+    #[cfg(target_os = "windows")]
+    let cjk_font_paths: &[(&str, &str)] = &[
+        ("Microsoft YaHei", "C:/Windows/Fonts/msyh.ttc"),
+        ("SimHei", "C:/Windows/Fonts/simhei.ttf"),
+    ];
+    
+    #[cfg(target_os = "linux")]
+    let cjk_font_paths: &[(&str, &str)] = &[
+        ("Noto Sans CJK SC", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+        ("WenQuanYi Micro Hei", "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
+    ];
+    
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    let cjk_font_paths: &[(&str, &str)] = &[];
+    
+    // Collect successfully loaded CJK fonts
+    let mut loaded_cjk_fonts: Vec<String> = Vec::new();
+    
+    for (font_name, font_path) in cjk_font_paths {
+        let path = std::path::Path::new(font_path);
+        if let Ok(font_data) = std::fs::read(path) {
+            fonts.font_data.insert(
+                font_name.to_string(),
+                FontData::from_owned(font_data).into(),
+            );
+            loaded_cjk_fonts.push(font_name.to_string());
+            tracing::info!("Loaded CJK font: {} from {}", font_name, font_path);
+        }
+    }
+    
+    // Insert CJK fonts at the BEGINNING of font families for proper priority
+    // This ensures CJK characters are rendered with CJK fonts, not fallback boxes
+    if !loaded_cjk_fonts.is_empty() {
+        // Get existing fonts and prepend CJK fonts
+        for family in [FontFamily::Proportional, FontFamily::Monospace] {
+            let existing = fonts.families.entry(family).or_default();
+            let mut new_list = loaded_cjk_fonts.clone();
+            new_list.extend(existing.drain(..));
+            *existing = new_list;
+        }
     }
     
     ctx.set_fonts(fonts);

@@ -3,6 +3,7 @@
 //! Displays a file tree, repo info, and README for browsing repository contents.
 
 use eframe::egui::{self, Color32, RichText, ScrollArea, Vec2};
+use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use crate::app_event::{AppAction, FileNode, RepoInfo};
 use crate::i18n::I18n;
 use tokio::sync::mpsc::Sender;
@@ -21,6 +22,7 @@ pub fn render_file_browser(
     repo_info: &Option<RepoInfo>,
     readme_content: &Option<String>,
     action_tx: &Sender<AppAction>,
+    markdown_cache: &mut CommonMarkCache,
 ) -> Option<BrowserAction> {
     let action = std::cell::RefCell::new(None);
     
@@ -165,8 +167,10 @@ pub fn render_file_browser(
                     
                     ScrollArea::vertical().id_salt("readme_panel").show(ui, |ui| {
                         if let Some(readme) = readme_content {
-                            ui.style_mut().wrap = Some(true);
-                            ui.label(readme.as_str());
+                            // Convert HTML to Markdown for rendering
+                            // (transforms <img> tags to markdown image syntax for fetch)
+                            let converted_readme = html_to_markdown(readme);
+                            CommonMarkViewer::new().show(ui, markdown_cache, &converted_readme);
                         } else {
                             ui.colored_label(Color32::GRAY, "无 README 文件");
                         }
@@ -208,4 +212,134 @@ fn file_icon(filename: &str) -> &'static str {
         "png" | "jpg" | "jpeg" | "gif" | "svg" => "🖼️",
         _ => "📄",
     }
+}
+
+/// Convert HTML in README to clean Markdown for egui_commonmark rendering
+/// Removes HTML tags (especially images) that can't be rendered natively
+fn html_to_markdown(content: &str) -> String {
+    let mut result = content.to_string();
+    
+    // Remove <img> tags completely (they can't be rendered reliably)
+    let mut output = String::new();
+    let mut remaining = result.as_str();
+    
+    while let Some(start) = remaining.find("<img") {
+        // Add content before the tag
+        output.push_str(&remaining[..start]);
+        
+        // Find the end of the tag and skip it
+        if let Some(end_offset) = remaining[start..].find('>') {
+            remaining = &remaining[start + end_offset + 1..];
+        } else {
+            remaining = &remaining[start + 4..];
+        }
+    }
+    output.push_str(remaining);
+    result = output;
+    
+    // Remove <a> tags but keep content (links are preserved as text)
+    result = remove_tag_keep_content(&result, "a");
+    
+    // Remove <div>, <p>, <span> but keep content
+    result = remove_tag_keep_content(&result, "div");
+    result = remove_tag_keep_content(&result, "p");
+    result = remove_tag_keep_content(&result, "span");
+    result = remove_tag_keep_content(&result, "h1");
+    result = remove_tag_keep_content(&result, "h2");
+    result = remove_tag_keep_content(&result, "h3");
+    result = remove_tag_keep_content(&result, "br");
+    result = remove_tag_keep_content(&result, "hr");
+    
+    // Remove HTML comments <!-- ... -->
+    while let Some(start) = result.find("<!--") {
+        if let Some(end) = result[start..].find("-->") {
+            result = format!("{}{}", &result[..start], &result[start + end + 3..]);
+        } else {
+            break;
+        }
+    }
+    
+    // Remove Markdown image syntax ![alt](url) since we can't display images
+    let mut output = String::new();
+    let mut remaining = result.as_str();
+    while let Some(start) = remaining.find("![") {
+        output.push_str(&remaining[..start]);
+        // Find the closing ]
+        if let Some(bracket_end) = remaining[start..].find("](") {
+            // Find the closing )
+            if let Some(paren_end) = remaining[start + bracket_end..].find(')') {
+                remaining = &remaining[start + bracket_end + paren_end + 1..];
+                continue;
+            }
+        }
+        // Not a valid image syntax, keep it
+        output.push_str(&remaining[start..start + 2]);
+        remaining = &remaining[start + 2..];
+    }
+    output.push_str(remaining);
+    result = output;
+    
+    // Clean up excessive whitespace
+    let lines: Vec<&str> = result.lines().collect();
+    let mut cleaned_lines = Vec::new();
+    let mut prev_empty = false;
+    
+    for line in lines {
+        let trimmed = line.trim();
+        let is_empty = trimmed.is_empty();
+        if is_empty {
+            if !prev_empty {
+                cleaned_lines.push("");
+            }
+            prev_empty = true;
+        } else {
+            cleaned_lines.push(trimmed);
+            prev_empty = false;
+        }
+    }
+    
+    cleaned_lines.join("\n")
+}
+
+/// Extract an attribute value from an HTML tag
+fn extract_attr(tag: &str, attr_name: &str) -> Option<String> {
+    let search = format!("{}=\"", attr_name);
+    if let Some(start) = tag.find(&search) {
+        let value_start = start + search.len();
+        if let Some(end_offset) = tag[value_start..].find('"') {
+            return Some(tag[value_start..value_start + end_offset].to_string());
+        }
+    }
+    // Try single quotes
+    let search_single = format!("{}='", attr_name);
+    if let Some(start) = tag.find(&search_single) {
+        let value_start = start + search_single.len();
+        if let Some(end_offset) = tag[value_start..].find('\'') {
+            return Some(tag[value_start..value_start + end_offset].to_string());
+        }
+    }
+    None
+}
+
+/// Remove HTML tags but keep the content inside
+fn remove_tag_keep_content(content: &str, tag_name: &str) -> String {
+    let mut result = content.to_string();
+    
+    // Remove opening tags like <tag ...>
+    let open_pattern = format!("<{}", tag_name);
+    while let Some(start) = result.to_lowercase().find(&open_pattern) {
+        if let Some(end_offset) = result[start..].find('>') {
+            result = format!("{}{}", &result[..start], &result[start + end_offset + 1..]);
+        } else {
+            break;
+        }
+    }
+    
+    // Remove closing tags like </tag>
+    let close_pattern = format!("</{}>", tag_name);
+    result = result.replace(&close_pattern, "");
+    // Also handle uppercase
+    result = result.replace(&close_pattern.to_uppercase(), "");
+    
+    result
 }

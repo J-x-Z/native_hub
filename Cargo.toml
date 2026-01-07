@@ -7,15 +7,15 @@ description = "A 100% native GitHub client built with Rust and egui"
 
 [dependencies]
 # GUI Framework
-eframe = "0.31"
-egui = "0.31"
-egui_extras = { version = "0.31", features = ["all_loaders"] }
+eframe = "0.33"
+egui = "0.33"
+egui_extras = { version = "0.33", features = ["all_loaders"] }
 
 # Async Runtime
 tokio = { version = "1", features = ["full"] }
 
 # HTTP Client
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "blocking"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -24,14 +24,15 @@ serde_json = "1"
 # Secure Token Storage
 keyring = "3"
 
-# Markdown Rendering (for future use)
-egui_commonmark = "0.19"
+# Markdown Rendering (using custom http loader with 30s timeout)
+egui_commonmark = { version = "0.22", features = ["svg"] }
+image = { version = "0.25", features = ["png", "jpeg", "gif", "webp"] }
 
 # Code Syntax Highlighting (for future use)
 syntect = "5"
 
 # Charts and Plots (for future use)
-egui_plot = "0.31"
+egui_plot = "0.33"
 
 # Logging
 tracing = "0.1"

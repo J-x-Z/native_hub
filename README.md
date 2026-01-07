@@ -5,8 +5,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-2024%20Edition-orange?style=flat-square&logo=rust" alt="Rust">
   <img src="https://img.shields.io/badge/GUI-egui-blue?style=flat-square" alt="egui">
-  <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Windows">
-  <img src="https://img.shields.io/badge/Status-Alpha-red?style=flat-square" alt="Alpha">
+  <img src="https://img.shields.io/badge/Platform-Windows%20|%20macOS%20|%20Linux-brightgreen?style=flat-square" alt="Cross-Platform">
+  <img src="https://img.shields.io/badge/Status-Beta-yellow?style=flat-square" alt="Beta">
 </p>
 
 A fast, lightweight native desktop GitHub client built with Rust and egui. Features a distinctive cyberpunk aesthetic with neon cyan accents and a dark theme.
@@ -16,9 +16,11 @@ A fast, lightweight native desktop GitHub client built with Rust and egui. Featu
 ### Core Functionality
 - ✅ **Authentication** - Zero-config login via `gh` CLI
 - ✅ **Repository Browser** - View your GitHub repositories with cyberpunk-styled cards
+  - Stars ⭐ and Forks 🍴 count display
+  - Public/Private status indicators
 - ✅ **File Browser** - Navigate repository files and directories
 - ✅ **Code Viewer** - View file contents with syntax highlighting icons
-- ✅ **README Display** - Automatic README loading when entering a repository
+- ✅ **README Display** - Automatic README loading with Markdown rendering
 - ✅ **Search** - Search GitHub repositories globally
 
 ### Issues Management
@@ -35,13 +37,19 @@ A fast, lightweight native desktop GitHub client built with Rust and egui. Featu
 
 ### UI Features
 - ✅ **Cyberpunk Theme** - Neon cyan accents, dark backgrounds, tactical corners
-- ✅ **Chinese Localization** - Full Chinese interface support
+- ✅ **Chinese Localization** - Full Chinese interface support (中文界面)
+- ✅ **CJK Font Support** - Proper Chinese/Japanese/Korean character rendering
+- ✅ **Markdown Rendering** - egui_commonmark integration
 - ✅ **System Status Bar** - HUD-style bottom bar
 - ✅ **Tabbed Navigation** - Switch between Issues and PRs
 
-## 🖥️ Screenshots
+## 🖥️ Platform Support
 
-*Coming soon*
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Windows** | ✅ Fully Supported | Tested on Windows 10/11 |
+| **macOS** | ✅ Fully Supported | Native CJK fonts (PingFang, Hiragino) |
+| **Linux** | ✅ Fully Supported | CJK fonts via system fonts |
 
 ## 📦 Requirements
 
@@ -60,17 +68,26 @@ cd native_hub
 cargo run
 ```
 
-### Release (No Console)
+### Release Build
+
+**Windows:**
 ```bash
 cargo build --release
 ./target/release/native_hub.exe
+```
+
+**macOS / Linux:**
+```bash
+cargo build --release
+./target/release/native_hub
 ```
 
 ## 🛠️ Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| GUI Framework | [egui](https://github.com/emilk/egui) + eframe |
+| GUI Framework | [egui](https://github.com/emilk/egui) 0.33 + eframe |
+| Markdown | [egui_commonmark](https://github.com/lampsitter/egui_commonmark) |
 | Async Runtime | Tokio |
 | HTTP Client | Reqwest |
 | Token Storage | keyring (OS-native secure storage) |
@@ -88,14 +105,14 @@ cargo build --release
 - [ ] Starring/Forking repos
 
 ### Future
-- [ ] Linux/macOS support
 - [ ] Custom themes
 - [ ] Keyboard shortcuts
 - [ ] Multiple account support
+- [ ] Remote image loading in README
 
-## ⚠️ Alpha Status
+## ⚠️ Beta Status
 
-This is an **early alpha** release. Some features may be incomplete or buggy. 
+This is a **beta** release. Core features are working but some advanced features may be incomplete.
 Bug reports and contributions are welcome!
 
 ## 📄 License

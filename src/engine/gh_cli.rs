@@ -28,6 +28,10 @@ struct GhRepoJson {
     is_private: bool,
     #[serde(rename = "updatedAt")]
     updated_at: String,
+    #[serde(rename = "stargazerCount", default)]
+    stargazer_count: u32,
+    #[serde(rename = "forkCount", default)]
+    fork_count: u32,
 }
 
 #[async_trait]
@@ -36,7 +40,7 @@ impl Ops for GhCliEngine {
         let output = Command::new("gh")
             .args([
                 "repo", "list",
-                "--json", "name,nameWithOwner,description,isPrivate,updatedAt",
+                "--json", "name,nameWithOwner,description,isPrivate,updatedAt,stargazerCount,forkCount",
                 "--limit", "50"
             ])
             .output()
@@ -60,6 +64,8 @@ impl Ops for GhCliEngine {
                 description: r.description.unwrap_or_default(),
                 is_private: r.is_private,
                 last_updated: format_relative_time(&r.updated_at),
+                stars_count: r.stargazer_count,
+                forks_count: r.fork_count,
             }
         }).collect();
         

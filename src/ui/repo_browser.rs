@@ -160,9 +160,9 @@ impl RepoBrowser {
                     
                     ui.add_space(10.0);
                     
-                    // Stars & Forks (if we have the data - use placeholder for now)
-                    ui.label(RichText::new("⭐ --").size(10.0).color(Color32::from_rgb(255, 215, 0)));
-                    ui.label(RichText::new("🍴 --").size(10.0).color(Color32::GRAY));
+                    // Stars & Forks
+                    ui.label(RichText::new(format!("⭐ {}", repo.stars_count)).size(10.0).color(Color32::from_rgb(255, 215, 0)));
+                    ui.label(RichText::new(format!("🍴 {}", repo.forks_count)).size(10.0).color(Color32::GRAY));
                 });
             });
         });

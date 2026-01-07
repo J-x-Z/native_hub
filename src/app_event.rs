@@ -38,6 +38,8 @@ pub struct RepoData {
     pub description: String,
     pub is_private: bool,
     pub last_updated: String,
+    pub stars_count: u32,
+    pub forks_count: u32,
 }
 
 /// Events sent from the Backend to the UI

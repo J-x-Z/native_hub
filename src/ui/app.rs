@@ -1,4 +1,5 @@
 use eframe::egui;
+use egui_commonmark::CommonMarkCache;
 use tokio::sync::mpsc::Sender; // UI -> Backend
 use std::sync::mpsc::Receiver; // Backend -> UI
 
@@ -55,6 +56,9 @@ pub struct NativeHubApp {
     
     // File browsing state
     selected_repo: Option<String>, // full_name of the repo being browsed
+    
+    // Markdown rendering cache
+    markdown_cache: CommonMarkCache,
 }
 
 impl NativeHubApp {
@@ -67,6 +71,9 @@ impl NativeHubApp {
         // Apply Cyberpunk theme
         super::style::configure_fonts(&cc.egui_ctx);
         super::style::configure_theme(&cc.egui_ctx);
+        
+        // Install custom HTTP image loader with longer timeout
+        super::image_loader::CustomHttpLoader::install(&cc.egui_ctx);
         
         Self {
             ctx,
@@ -84,6 +91,7 @@ impl NativeHubApp {
             event_rx,
             auth_error: None,
             selected_repo: None,
+            markdown_cache: CommonMarkCache::default(),
         }
     }
 
@@ -432,6 +440,7 @@ impl NativeHubApp {
                     repo_info,
                     readme_content,
                     &self.action_tx,
+                    &mut self.markdown_cache,
                 ) {
                     match action {
                         BrowserAction::BackToRepoList => {
